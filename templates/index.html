@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Barcode Generator (70×30 mm)</title>
+  <link href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" rel="stylesheet">
+  <style>
+  body { padding: 1.5rem; }
+  main { max-width: 780px; margin: 0 auto; }
+  .alert { padding:.75rem 1rem; border-radius:.5rem; background:#fee; color:#900; }
+  .grid-3 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 760px) { .grid-3 { grid-template-columns: 1.2fr .6fr .6fr; } }
+  code { white-space:nowrap; }
+  .hint { font-size: .9rem; opacity: .8; }
+  .page-title span {
+  font-size: 0.9em;
+  color: #555;
+  padding-left: 400px; /* adjust px as you like */
+  .watermark {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    opacity: 0.15;       /* faint, watermark feel */
+    pointer-events: none; /* logo won’t block clicks on form */
+  }
+  .watermark img {
+    max-width: 180px;
+    height: auto;
+  }
+}
+.title-row {
+  display: flex;
+  align-items: center;   /* vertically center logo + text */
+  gap: 1rem;             /* space between logo and text */
+  
+}
+
+.title-logo {
+  max-height: 100px;      /* keep logo small enough */
+  width: auto;
+}
+
+  </style>
+</head>
+<body>
+
+  <main>
+    <div class="title-row">
+  <img src="{{ url_for('static', filename='img/FullLogo_Transparent.png') }}" 
+       alt="Bhupesh Tech Logo" class="title-logo">
+  <h2>Barcode Generator (70 × 30 mm)</h2>
+</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert" role="alert">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      <fieldset>
+        <label for="color_code"><strong>Colour / AT Code</strong></label>
+        <select id="color_code" name="color_code" required>
+          <option value="" disabled selected>Select colour / AT000X</option>
+          {% for code, name in colours.items() %}
+            <option value="{{ code }}">{{ name }} — {{ code }}</option>
+          {% endfor %}
+        </select>
+        <small class="hint">Series letters depend on the selected SKU.</small>
+      </fieldset>
+
+      <div class="grid-3">
+        <fieldset>
+          <label for="series"><strong>Series</strong></label>
+          <input id="series" name="series" type="text" placeholder="e.g., A / B / C..." maxlength="1" required>
+          <small id="series_hint" class="hint">Pick a colour to see allowed letters.</small>
+        </fieldset>
+
+        <fieldset>
+          <label for="start_num"><strong>Start #</strong> (0001–9999)</label>
+          <input id="start_num" name="start_num" type="text" placeholder="e.g., 0001" maxlength="4" required>
+        </fieldset>
+
+        <fieldset>
+          <label for="end_num"><strong>End #</strong> (0001–9999)</label>
+          <input id="end_num" name="end_num" type="text" placeholder="e.g., 0120" maxlength="4" required>
+        </fieldset>
+      </div>
+
+      <button type="submit" style="margin-top: .5rem;">Generate PDF</button>
+    </form>
+
+    <details style="margin-top:1rem;">
+      <summary>Output format & tips</summary>
+      <ul>
+        <li>Each page = one label, <strong>70 mm × 30 mm</strong>.</li>
+        <li>Encoded text: <code>AT000X-&lt;Series&gt;&lt;NNN&gt;</code> (e.g., <code>AT0002-B057</code>).</li>
+        <li>Human-readable line printed below the bars with the colour name.</li>
+        <li>If scanning is finicky, reduce printer scaling or ask us to bump barcode density.</li>
+      </ul>
+    </details>
+  </main>
+
+  <script>
+    // Pass SERIES_BY_SKU from server into the page:
+    const SERIES_BY_SKU = {{ series_by_sku | tojson }};
+    const select = document.getElementById('color_code');
+    const seriesInput = document.getElementById('series');
+    const seriesHint = document.getElementById('series_hint');
+
+    function updateHint() {
+      const sku = select.value;
+      if (sku && SERIES_BY_SKU[sku]) {
+        const allowed = SERIES_BY_SKU[sku].join(', ');
+        seriesHint.textContent = `Allowed series for ${sku}: ${allowed}`;
+      } else {
+        seriesHint.textContent = 'Pick a colour to see allowed letters.';
+      }
+    }
+
+    // Keep series uppercase
+    seriesInput.addEventListener('input', () => {
+      seriesInput.value = seriesInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0,1);
+    });
+
+    select.addEventListener('change', updateHint);
+    updateHint();
+  </script>
+</body>
+</html>
